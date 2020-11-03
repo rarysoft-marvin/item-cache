@@ -24,13 +24,21 @@
 package com.rarysoft.marvin.itemcache;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 public class CacheTest {
+    @Mock
+    private TimestampGenerator timestampGenerator;
+
     @Test
     public void constructorWithNoItemsSetsInitialStateToNotFullyPopulated() {
         Cache<String> cache = new Cache<>(value -> value);
@@ -57,7 +65,7 @@ public class CacheTest {
     public void allWhenFullyPopulatedProvidedReturnsAllItems() {
         Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2", "val3"));
 
-        List<String> result = cache.all();
+        Collection<String> result = cache.all();
 
         assertThat(result).isNotNull().containsExactlyInAnyOrder("val1", "val2", "val3");
     }
@@ -88,7 +96,7 @@ public class CacheTest {
             }
         }, 20);
 
-        List<String> result = cache.all(1000);
+        Collection<String> result = cache.all(1000);
 
         assertThat(result).isNotNull().containsExactlyInAnyOrder("val1", "val2", "val3");
     }
@@ -105,7 +113,7 @@ public class CacheTest {
             }
         }, 20);
 
-        List<String> result = cache.all(1000);
+        Collection<String> result = cache.all(1000);
 
         assertThat(result).isNotNull().containsExactlyInAnyOrder("val1", "val2", "val3");
     }
@@ -114,7 +122,7 @@ public class CacheTest {
     public void allWithTimeoutWhenFullyPopulatedReturnsAllItems() throws PollingTimeout {
         Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2", "val3"));
 
-        List<String> result = cache.all(1000);
+        Collection<String> result = cache.all(1000);
 
         assertThat(result).isNotNull().containsExactlyInAnyOrder("val1", "val2", "val3");
     }
@@ -391,7 +399,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenNotFullyPopulatedLeavesStateAsNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
 
         cache.evictUnaccessed(0);
@@ -401,7 +410,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenNotFullyPopulatedAndContainsOnlyUnaccessedItemsRemovesAllItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
 
         cache.evictUnaccessed(1000);
@@ -411,7 +421,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenNotFullyPopulatedAndContainsOnlyAccessedItemsRemovesNothing() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.get("val1");
 
@@ -422,7 +433,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenNotFullyPopulatedAndContainsAccessedAndUnaccessedItemsRemovesUnaccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L, 1000000003L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.add("val2");
         cache.get("val2");
@@ -434,7 +446,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenNotFullyPopulatedAndContainsAccessedAndUnaccessedItemsLeavesAccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L, 1000000003L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.add("val2");
         cache.get("val2");
@@ -446,7 +459,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenFullyPopulatedAndContainsOnlyUnaccessedItemsRemovesAllItems() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
 
         cache.evictUnaccessed(1000);
 
@@ -455,7 +469,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenFullyPopulatedAndContainsOnlyUnaccessedItemsSetsStateToNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
 
         cache.evictUnaccessed(1000);
 
@@ -464,7 +479,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenFullyPopulatedAndContainsOnlyAccessedItemsRemovesNothing() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
         cache.get("val1");
 
         cache.evictUnaccessed(1000);
@@ -474,7 +490,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenFullyPopulatedAndContainsOnlyAccessedItemsLeavesStateAsFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
         cache.get("val1");
 
         cache.evictUnaccessed(1000);
@@ -484,7 +501,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenFullyPopulatedAndContainsAccessedAndUnaccessedItemsRemovesUnaccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Arrays.asList("val1", "val2"));
         cache.get("val1");
 
         cache.evictUnaccessed(1000);
@@ -494,7 +512,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenFullyPopulatedAndContainsAccessedAndUnaccessedItemsLeavesAccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Arrays.asList("val1", "val2"));
         cache.get("val1");
 
         cache.evictUnaccessed(1000);
@@ -504,7 +523,8 @@ public class CacheTest {
 
     @Test
     public void evictUnaccessedWhenFullyPopulatedAndContainsAccessedAndUnaccessedItemsSetsStateToNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Arrays.asList("val1", "val2"));
         cache.get("val1");
 
         cache.evictUnaccessed(1000);
@@ -523,7 +543,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenNotFullyPopulatedLeavesStateAsNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
 
         cache.evictUnmodified(0);
@@ -533,7 +554,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenNotFullyPopulatedAndContainsOnlyUnmodifiedItemsRemovesAllItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
 
         cache.evictUnmodified(1000);
@@ -543,7 +565,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenNotFullyPopulatedAndContainsOnlyModifiedItemsRemovesNothing() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.update("val1");
 
@@ -554,7 +577,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenNotFullyPopulatedAndContainsModifiedAndUnmodifiedItemsRemovesUnmodifiedItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L, 1000000003L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.add("val2");
         cache.update("val2");
@@ -566,7 +590,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenNotFullyPopulatedAndContainsModifiedAndUnmodifiedItemsLeavesModifiedItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L, 1000000003L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.add("val2");
         cache.update("val2");
@@ -578,7 +603,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenFullyPopulatedAndContainsOnlyUnmodifiedItemsRemovesAllItems() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
 
         cache.evictUnmodified(1000);
 
@@ -587,7 +613,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenFullyPopulatedAndContainsOnlyUnmodifiedItemsSetsStateToNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
 
         cache.evictUnmodified(1000);
 
@@ -596,7 +623,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenFullyPopulatedAndContainsOnlyModifiedItemsRemovesNothing() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
         cache.update("val1");
 
         cache.evictUnmodified(1000);
@@ -606,7 +634,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenFullyPopulatedAndContainsOnlyModifiedItemsLeavesStateAsFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
         cache.update("val1");
 
         cache.evictUnmodified(1000);
@@ -616,7 +645,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenFullyPopulatedAndContainsModifiedAndUnmodifiedItemsRemovesUnmodifiedItems() {
-        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Arrays.asList("val1", "val2"));
         cache.update("val1");
 
         cache.evictUnmodified(1000);
@@ -626,7 +656,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenFullyPopulatedAndContainsModifiedAndUnmodifiedItemsLeavesModifiedItems() {
-        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Arrays.asList("val1", "val2"));
         cache.update("val1");
 
         cache.evictUnmodified(1000);
@@ -636,7 +667,8 @@ public class CacheTest {
 
     @Test
     public void evictUnmodifiedWhenFullyPopulatedAndContainsModifiedAndUnmodifiedItemsSetsStateToNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Arrays.asList("val1", "val2"));
         cache.update("val1");
 
         cache.evictUnaccessed(1000);
@@ -648,49 +680,37 @@ public class CacheTest {
     public void evictWhenNotPopulatedLeavesStateAsNotFullyPopulated() {
         Cache<String> cache = new Cache<>(value -> value);
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.isFullyPopulated()).isFalse();
-            }
-        }, 2);
+        assertThat(cache.isFullyPopulated()).isFalse();
     }
 
     @Test
     public void evictWhenNotFullyPopulatedLeavesStateAsNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.isFullyPopulated()).isFalse();
-            }
-        }, 2);
+        assertThat(cache.isFullyPopulated()).isFalse();
     }
 
     @Test
     public void evictWhenNotFullyPopulatedAndContainsOnlyOldItemsRemovesAllItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.contains("val1")).isFalse();
-            }
-        }, 2);
+        assertThat(cache.contains("val1")).isFalse();
     }
 
     @Test
     public void evictWhenNotFullyPopulatedAndContainsOnlyNewerItemsRemovesNothing() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
 
         cache.evict(1000);
@@ -700,135 +720,99 @@ public class CacheTest {
 
     @Test
     public void evictWhenNotFullyPopulatedAndContainsNewerAndOldItemsRemovesOldItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
+        cache.add("val2");
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.add("val2");
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.contains("val1")).isFalse();
-            }
-        }, 2);
+        assertThat(cache.contains("val1")).isFalse();
     }
 
     @Test
     public void evictWhenNotFullyPopulatedAndContainsNewerAndOldItemsLeavesNewerItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
+        cache.add("val2");
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.add("val2");
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.contains("val2")).isTrue();
-            }
-        }, 2);
+        assertThat(cache.contains("val2")).isTrue();
     }
 
     @Test
     public void evictWhenFullyPopulatedAndContainsOnlyOldItemsRemovesAllItems() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.contains("val1")).isFalse();
-            }
-        }, 2);
+        assertThat(cache.contains("val1")).isFalse();
     }
 
     @Test
     public void evictWhenFullyPopulatedAndContainsOnlyOldItemsSetsStateToNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.isFullyPopulated()).isFalse();
-            }
-        }, 2);
+        assertThat(cache.isFullyPopulated()).isFalse();
     }
 
     @Test
     public void evictWhenFullyPopulatedAndContainsOnlyNewerItemsRemovesNothing() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.contains("val1")).isTrue();
-            }
-        }, 2);
+        assertThat(cache.contains("val1")).isTrue();
     }
 
     @Test
     public void evictWhenFullyPopulatedAndContainsOnlyNewerItemsLeavesStateAsFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.isFullyPopulated()).isTrue();
-            }
-        }, 2);
+        assertThat(cache.isFullyPopulated()).isTrue();
     }
 
     @Test
     public void evictWhenFullyPopulatedAndContainsNewerAndOldItemsRemovesOldItems() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
+        cache.add("val2");
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.add("val2");
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.contains("val1")).isFalse();
-            }
-        }, 2);
+        assertThat(cache.contains("val1")).isFalse();
     }
 
     @Test
     public void evictWhenFullyPopulatedAndContainsNewerAndOldItemsLeavesNewerItems() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
+        cache.add("val2");
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.add("val2");
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.contains("val2")).isTrue();
-            }
-        }, 1);
+        assertThat(cache.contains("val2")).isTrue();
     }
 
     @Test
     public void evictWhenFullyPopulatedAndContainsNewerAndOldItemsSetsStateToNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
+        cache.add("val2");
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                cache.add("val2");
-                cache.evict(1);
+        cache.evict(1);
 
-                assertThat(cache.isFullyPopulated()).isFalse();
-            }
-        }, 2);
+        assertThat(cache.isFullyPopulated()).isFalse();
     }
 
     @Test
@@ -842,7 +826,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenNotFullyPopulatedAndContainsUnaccessedItemsRemovesUnaccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
 
         cache.evictAll();
@@ -852,7 +837,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenNotFullyPopulatedAndContainsAccessedItemsRemovesAccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.get("val1");
 
@@ -863,7 +849,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenNotFullyPopulatedAndContainsAccessedAndUnaccessedItemsRemovesUnaccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L, 1000000003L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.add("val2");
         cache.get("val2");
@@ -875,7 +862,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenNotFullyPopulatedAndContainsAccessedAndUnaccessedItemsRemovesAccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L, 1000000003L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.add("val2");
         cache.get("val2");
@@ -887,7 +875,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenNotFullyPopulatedLeavesStateAsNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value);
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value);
         cache.add("val1");
         cache.get("val1");
 
@@ -898,7 +887,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenFullyPopulatedAndContainsUnaccessedItemsRemovesUnaccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
 
         cache.evictAll();
 
@@ -907,7 +897,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenFullyPopulatedAndContainsAccessedItemsRemovesAccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value, Collections.singletonList("val1"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Collections.singletonList("val1"));
         cache.get("val1");
 
         cache.evictAll();
@@ -917,7 +908,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenFullyPopulatedAndContainsAccessedAndUnaccessedItemsRemovesUnaccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L, 1000000003L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Arrays.asList("val1", "val2"));
         cache.get("val2");
 
         cache.evictAll();
@@ -927,7 +919,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenFullyPopulatedAndContainsAccessedAndUnaccessedItemsRemovesAccessedItems() {
-        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L, 1000000003L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Arrays.asList("val1", "val2"));
         cache.get("val2");
 
         cache.evictAll();
@@ -937,7 +930,8 @@ public class CacheTest {
 
     @Test
     public void evictAllWhenFullyPopulatedSetsStateToNotFullyPopulated() {
-        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2"));
+        when(timestampGenerator.timestamp()).thenReturn(1000000000L, 1000000001L, 1000000002L);
+        Cache<String> cache = new Cache<>(timestampGenerator, value -> value, Arrays.asList("val1", "val2"));
 
         cache.evictAll();
 
