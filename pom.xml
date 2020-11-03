@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.rarysoft.marvin</groupId>
+    <artifactId>item-cache</artifactId>
+    <version>1.0.0</version>
+
+    <name>item-cache</name>
+    <description>A simple item cache.</description>
+    <inceptionYear>2020</inceptionYear>
+    <url>https://github.com/rarysoft-marvin/item-cache</url>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://choosealicense.com/licenses/mit/</url>
+            <distribution>repo</distribution>
+            <comments>
+                A short and simple permissive license with conditions only requiring preservation of copyright and
+                license notices. Licensed works, modifications, and larger works may be distributed under different
+                terms and without source code.
+            </comments>
+        </license>
+    </licenses>
+    <organization>
+        <name>Rarysoft Enterprises</name>
+    </organization>
+    <developers>
+        <developer>
+            <name>Jeromy Van Dusen</name>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/rarysoft-marvin/item-cache</url>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/rarysoft-marvin/item-cache/issues</url>
+    </issueManagement>
+
+    <properties>
+        <java.version>1.8</java.version>
+
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+
+        <assertj.version>3.16.1</assertj.version>
+        <junit.version>5.6.3</junit.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
