@@ -62,6 +62,7 @@ public class Cache<T> {
     private final TimestampGenerator timestampGenerator;
     private final Function<T, Serializable> idExtractor;
     private final Map<Serializable, CachedItem<T>> all;
+    private final Map<Serializable, CachedItem<T>> partial;
 
     private boolean fullyPopulated;
 
@@ -79,6 +80,7 @@ public class Cache<T> {
         this.timestampGenerator = new SystemTimestampGenerator();
         this.idExtractor = idExtractor;
         this.all = new HashMap<>();
+        this.partial = new HashMap<>();
         this.fullyPopulated = false;
     }
 
@@ -103,8 +105,9 @@ public class Cache<T> {
         this.timestampGenerator = new SystemTimestampGenerator();
         this.idExtractor = idExtractor;
         this.all = new HashMap<>();
-        all.forEach(item -> this.all.put(this.idExtractor.apply(item), new CachedItem<>(item, timestampGenerator.timestamp())));
+        this.partial = new HashMap<>();
         this.fullyPopulated = true;
+        all.forEach(item -> this.all.put(this.idExtractor.apply(item), new CachedItem<>(item, timestampGenerator.timestamp())));
     }
 
     /**
@@ -122,6 +125,7 @@ public class Cache<T> {
         this.timestampGenerator = timestampGenerator;
         this.idExtractor = idExtractor;
         this.all = new HashMap<>();
+        this.partial = new HashMap<>();
         this.fullyPopulated = false;
     }
 
@@ -147,8 +151,9 @@ public class Cache<T> {
         this.timestampGenerator = timestampGenerator;
         this.idExtractor = idExtractor;
         this.all = new HashMap<>();
-        all.forEach(item -> this.all.put(this.idExtractor.apply(item), new CachedItem<>(item, timestampGenerator.timestamp())));
+        this.partial = new HashMap<>();
         this.fullyPopulated = true;
+        all.forEach(item -> this.all.put(this.idExtractor.apply(item), new CachedItem<>(item, timestampGenerator.timestamp())));
     }
 
     /**
@@ -232,8 +237,9 @@ public class Cache<T> {
      */
     public synchronized void setAll(Collection<T> all) {
         this.all.clear();
-        all.forEach(item -> this.all.put(this.idExtractor.apply(item), new CachedItem<>(item, timestampGenerator.timestamp())));
+        this.partial.clear();
         this.fullyPopulated = true;
+        all.forEach(item -> this.all.put(this.idExtractor.apply(item), new CachedItem<>(item, timestampGenerator.timestamp())));
         this.notifyAll();
     }
 
@@ -297,7 +303,7 @@ public class Cache<T> {
      * @return An indication of whether or not the cache contains the requested item.
      */
     public boolean contains(Serializable id) {
-        return this.all.containsKey(id);
+        return this.items().containsKey(id);
     }
 
     /**
@@ -322,12 +328,46 @@ public class Cache<T> {
      *         empty if the item does not exist in the cache.
      */
     public Optional<T> get(Serializable id) {
-        CachedItem<T> item = this.all.get(id);
-        if (item == null) {
-            return Optional.empty();
+        return this.itemById(id);
+    }
+
+    /**
+     * <p>
+     * Gets an item uniquely identified by the provided identifier, if such an item exists.
+     * </p>
+     * <p>
+     * If the cache is not fully populated and the requested item is not currently in the cache,
+     * then this method blocks and waits, up to a length of time defined by the first argument,
+     * for the cache to get populated with the requested item by some other thread's call to the
+     * {@link Cache#setAll(Collection)} method or the {@link Cache#add(Object)} method. If the
+     * requested item does not exist in the remote resource, the cache will never get populated
+     * with it, and therefore this method will time out and return an {@link Optional#empty()}.
+     * </p>
+     * <p>
+     * If the cache already contains the requeste item when this method is called, the method will
+     * return the item immediately. In this case, the timeout argument has no effect.
+     * </p>
+     * <p>
+     * If the item is found in the cache, it will be marked internally with an accessed timestamp.
+     * </p>
+     * @param id The unique identifier to use to locate the requested item.
+     * @param timeoutInMillis The number of milliseconds to wait for the cache to become populated
+     *                        with the requested item, if it is not already populated with it.
+     * @return An {@link Optional} that either contains the item, if it exists in the remote
+     *         repository, or is empty if the item does not exist in the remote repository or was
+     *         unable to be retrieved from the remote repository in the specified time.
+     */
+    public synchronized Optional<T> get(Serializable id, long timeoutInMillis) {
+        if (this.fullyPopulated || this.contains(id)) {
+            return this.itemById(id);
         }
-        this.all.put(id, item.accessed(timestampGenerator.timestamp()));
-        return Optional.of(item.getItem());
+        try {
+            this.wait(timeoutInMillis);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return this.itemById(id);
     }
 
     /**
@@ -344,8 +384,9 @@ public class Cache<T> {
      * </p>
      * @param item The item to add to the cache.
      */
-    public void add(T item) {
-        this.all.put(this.idExtractor.apply(item), new CachedItem<>(item, timestampGenerator.timestamp()));
+    public synchronized void add(T item) {
+        this.items().put(this.idExtractor.apply(item), new CachedItem<>(item, timestampGenerator.timestamp()));
+        this.notifyAll();
     }
 
     /**
@@ -373,16 +414,16 @@ public class Cache<T> {
      *                               found in the cache.
      */
     public void update(T item) {
-        CachedItem<T> oldItem = this.all.get(this.idExtractor.apply(item));
+        CachedItem<T> oldItem = this.items().get(this.idExtractor.apply(item));
         if (oldItem == null) {
             this.add(item);
             if (this.fullyPopulated) {
-                this.fullyPopulated = false;
+                this.downgradeToNotFullyPopulated();
                 throw new IllegalStateException("Attempt to update a missing item in a fully populated cache");
             }
         }
         else {
-            this.all.replace(this.idExtractor.apply(item), oldItem.modified(item, timestampGenerator.timestamp()));
+            this.items().replace(this.idExtractor.apply(item), oldItem.modified(item, timestampGenerator.timestamp()));
         }
     }
 
@@ -410,10 +451,10 @@ public class Cache<T> {
      */
     public void delete(Serializable id) {
         if (this.fullyPopulated && ! this.all.containsKey(id)) {
-            this.fullyPopulated = false;
+            this.downgradeToNotFullyPopulated();
             throw new IllegalStateException("Attempt to remove a missing item from a fully populated cache");
         }
-        this.all.remove(id);
+        this.items().remove(id);
     }
 
     /**
@@ -468,22 +509,49 @@ public class Cache<T> {
      */
     public void evictAll() {
         this.all.clear();
+        this.partial.clear();
         this.fullyPopulated = false;
+    }
+
+    private Map<Serializable, CachedItem<T>> items() {
+        return this.fullyPopulated ? this.all : this.partial;
     }
 
     private Collection<T> allItems() {
         return this.all.values().stream().map(CachedItem::getItem).collect(Collectors.toList());
     }
 
+    private Optional<T> itemById(Serializable id) {
+        CachedItem<T> item = this.items().get(id);
+        if (item == null) {
+            return Optional.empty();
+        }
+        this.items().put(id, item.accessed(timestampGenerator.timestamp()));
+        return Optional.of(item.getItem());
+    }
+
     private void evict(Predicate<CachedItem<T>> selector) {
-        int preEvictionSize = this.all.size();
-        this.all.values()
+        Map<Serializable, CachedItem<T>> items = this.items();
+        int preEvictionSize = items.size();
+        items.values()
                 .stream()
                 .filter(selector)
                 .map(CachedItem::getItem)
                 .map(this.idExtractor)
                 .collect(Collectors.toList())
-                .forEach(this.all::remove);
-        this.fullyPopulated = this.fullyPopulated && this.all.size() == preEvictionSize;
+                .forEach(items::remove);
+        if (this.fullyPopulated) {
+            if (items.size() == preEvictionSize) {
+                return;
+            }
+            this.downgradeToNotFullyPopulated();
+        }
+    }
+
+    private void downgradeToNotFullyPopulated() {
+        this.partial.clear();
+        this.partial.putAll(this.all);
+        this.all.clear();
+        this.fullyPopulated = false;
     }
 }

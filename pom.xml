@@ -7,15 +7,17 @@
     <groupId>com.rarysoft.marvin</groupId>
     <artifactId>item-cache</artifactId>
     <version>1.0.0</version>
+    <packaging>jar</packaging>
 
     <name>item-cache</name>
     <description>A simple item cache.</description>
-    <inceptionYear>2020</inceptionYear>
     <url>https://github.com/rarysoft-marvin/item-cache</url>
+
+    <inceptionYear>2020</inceptionYear>
     <licenses>
         <license>
             <name>MIT License</name>
-            <url>https://choosealicense.com/licenses/mit/</url>
+            <url>http://www.opensource.org/licenses/mit-license.php</url>
             <distribution>repo</distribution>
             <comments>
                 A short and simple permissive license with conditions only requiring preservation of copyright and
@@ -30,10 +32,14 @@
     <developers>
         <developer>
             <name>Jeromy Van Dusen</name>
+            <organization>Rarysoft Enterprises</organization>
+            <url>https://github.com/Rary</url>
         </developer>
     </developers>
 
     <scm>
+        <connection>scm:git:git://github.com/rarysoft-marvin/item-cache.git</connection>
+        <developerConnection>scm:git:ssh://github.com:rarysoft-marvin/item-cache.git</developerConnection>
         <url>https://github.com/rarysoft-marvin/item-cache</url>
     </scm>
 

@@ -255,6 +255,86 @@ public class CacheTest {
     }
 
     @Test
+    public void getWithTimeoutWhenNotPopulatedAndNotUpdatedWithinTimeoutReturnsEmpty() {
+        Cache<String> cache = new Cache<>(value -> value);
+
+        Optional<String> result = cache.get("val1", 1);
+
+        assertThat(result).isNotNull().isEmpty();
+    }
+
+    @Test
+    public void getWithTimeoutWhenNotFullyPopulatedAndNotUpdatedWithinTimeoutReturnsEmpty() {
+        Cache<String> cache = new Cache<>(value -> value);
+        cache.add("val1");
+
+        Optional<String> result = cache.get("val2", 1);
+
+        assertThat(result).isNotNull().isEmpty();
+    }
+
+    @Test
+    public void getWithTimeoutWhenNotPopulatedAndUpdatedWithRequestedItemWithinTimeoutReturnsRequestedItem() {
+        Cache<String> cache = new Cache<>(value -> value);
+
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                cache.add("val1");
+            }
+        }, 10);
+
+        Optional<String> result = cache.get("val1", 1000);
+
+        assertThat(result).isNotNull().isPresent().contains("val1");
+    }
+
+    @Test
+    public void getWithTimeoutWhenNotFullyPopulatedAndUpdatedWithRequestedItemWithinTimeoutReturnsRequestedItem() {
+        Cache<String> cache = new Cache<>(value -> value);
+        cache.add("val1");
+
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                cache.add("val2");
+            }
+        }, 10);
+
+        Optional<String> result = cache.get("val2", 1000);
+
+        assertThat(result).isNotNull().isPresent().contains("val2");
+    }
+
+    @Test
+    public void getWithTimeoutWhenNotFullyPopulatedAndContainsRequestedIdReturnsRequestedItem() {
+        Cache<String> cache = new Cache<>(value -> value);
+        cache.add("val1");
+
+        Optional<String> result = cache.get("val1", 1000);
+
+        assertThat(result).isNotNull().isPresent().contains("val1");
+    }
+
+    @Test
+    public void getWithTimeoutWhenFullyPopulatedAndMissingRequestedIdReturnsEmpty() {
+        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2", "val3"));
+
+        Optional<String> result = cache.get("val4", 1000);
+
+        assertThat(result).isNotNull().isEmpty();
+    }
+
+    @Test
+    public void getWithTimeoutWhenFullyPopulatedAndContainsRequestedIdReturnsRequestedItem() {
+        Cache<String> cache = new Cache<>(value -> value, Arrays.asList("val1", "val2", "val3"));
+
+        Optional<String> result = cache.get("val2", 1000);
+
+        assertThat(result).isNotNull().isPresent().contains("val2");
+    }
+
+    @Test
     public void addWhenNotFullyPopulatedLeavesStateAsNotFullyPopulated() {
         Cache<String> cache = new Cache<>(value -> value);
 
